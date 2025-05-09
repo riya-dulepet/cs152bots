@@ -35,6 +35,7 @@ class ModBot(discord.Client):
         self.mod_channels = {} # Map from guild to the mod channel id for that guild
         self.reports = {} # Map from user IDs to the state of their report
         self.report_data = {} # Map from user IDs to their report data
+        self.pending_mod_reviews = {} 
         self.categories = [
             "I just don't like it",
             "Promoting or selling illegal items",
@@ -106,6 +107,8 @@ class ModBot(discord.Client):
             return
 
         # Check if this message was sent in a server ("guild") or if it's a DM
+        if message.guild and message.channel.name == f'group-{self.group_num}-mod':
+            await self.handle_moderator_command(message)
         if message.guild:
             await self.handle_channel_message(message)
         else:
@@ -135,7 +138,8 @@ class ModBot(discord.Client):
                 "subcategory": None,
                 "details": None,
                 "age_under_18": None,
-                "actions": []
+                "actions": [],
+                "author_id": author_id
             }
 
         # Process the current state and update based on user input
@@ -404,10 +408,6 @@ class ModBot(discord.Client):
         for r in responses:
             await message.channel.send(r)
 
-        # If the report is complete or cancelled, remove it from our maps
-        if self.reports[author_id].report_complete():
-            self.reports.pop(author_id, None)
-            self.report_data.pop(author_id, None)
 
     async def submit_report(self, author_id):
         """Submit a completed report to the moderators"""
@@ -466,7 +466,22 @@ class ModBot(discord.Client):
         
         # Send the report to moderators
         await mod_channel.send(embed=embed)
-        
+
+
+        self.pending_mod_reviews[mod_channel.guild.id] = {
+        "report_id": report_id,
+        "step": "awaiting_severity",
+        "data": {
+            "report_data": report_data,
+            "severity": None,
+            "observations": ""
+            }
+        }
+
+        await mod_channel.send(
+            f"🛡️ Moderators: Please assess **severity (1 = low, 2 = medium, 3 = high)** for report `{report_id}`."
+        )
+            
 
     async def handle_channel_message(self, message):
         # Only handle messages sent in the "group-#" channel
@@ -494,6 +509,94 @@ class ModBot(discord.Client):
         shown in the mod channel. 
         '''
         return "Evaluated: '" + text+ "'"
+    
+    async def handle_moderator_command(self, message):
+        guild_id = message.guild.id
+
+        # No active mod review for this guild
+        if guild_id not in self.pending_mod_reviews:
+            return
+
+        pending = self.pending_mod_reviews[guild_id]
+        report_id = pending["report_id"]
+        step = pending["step"]
+        mod_data = pending["data"]
+
+        if step == "awaiting_severity":
+            try:
+                severity = int(message.content.strip())
+                if severity not in [1, 2, 3]:
+                    raise ValueError
+            except ValueError:
+                await message.channel.send("❗ Please enter a number from 1 to 3 for severity.")
+                return
+
+            mod_data["severity"] = severity
+            pending["step"] = "awaiting_observations"
+            await message.channel.send("📝 Please enter any moderator observations (or say `none`).")
+
+        elif step == "awaiting_observations":
+            mod_data["observations"] = message.content.strip()
+            await self.finalize_moderation_decision(
+                report_data=mod_data["report_data"],
+                severity=mod_data["severity"],
+                observations=mod_data["observations"],
+                channel=message.channel
+            )
+            del self.pending_mod_reviews[guild_id]
+
+    async def finalize_moderation_decision(self, report_data, severity, observations, channel):
+        category = report_data.get("category", "")
+        sub = report_data.get("subcategory", "")
+        violence = report_data.get("violence_type", "")
+        involves_minor = report_data.get("age_under_18", False)
+
+        if category == "Violence or Hateful Conduct" and sub == "Violence":
+            if severity == 3 or violence == "Credible threat to safety":
+                action = "Escalated to legal team and safety specialists."
+            elif violence == "Exploitation" and involves_minor:
+                action = "Child exploitation — reported to child safety unit."
+            else:
+                action = "Warning issued. Message removed."
+
+        elif category == "Hateful Conduct":
+            action = "Hateful conduct confirmed. User suspended."
+
+        elif category == "Suicide, self-injury, or eating disorders":
+            action = "Referred to mental health support."
+
+        elif category == "Fraud, Scam, or Spam":
+            action = "Scam detected. User shadowbanned."
+        
+        elif category == "Promoting or selling illegal items":
+            illegal_type = report_data.get("illegal_type", "").lower()
+
+            if severity == 3 and illegal_type in ["weapons", "drugs"]:
+                action = "High-severity illegal content detected. Case escalated to law enforcement specialists."
+            else:
+                action = "Cntent removed. No further action taken at this time."
+
+        elif category == "I just don't like it":
+            action = "ℹReport dismissed. No action taken."
+        else: 
+            action = "Content reviewed. No further action required."
+
+        # Compose summary
+        summary = f"""**Moderator Decision Summary**
+    - **Category:** {category}
+    - **Severity:** {severity}
+    - **Moderator Notes:** {observations}
+    - **Action Taken:** {action}
+    """
+
+        await channel.send(summary)
+
+        author_id = report_data.get("author_id")
+        if author_id:
+            user = await self.fetch_user(author_id)
+            await user.send("✅ Your report has been reviewed. Here is the outcome:")
+            await user.send(summary)
+
 
 
 client = ModBot()
