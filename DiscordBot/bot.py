@@ -149,7 +149,7 @@ class ModBot(discord.Client):
         elif self.reports[author_id].state == State.AWAITING_MESSAGE:
             responses = await self.reports[author_id].handle_message(message)
             
-        elif self.reports[author_id].state == State.MESSAGE_IDENTIFIED:
+        if self.reports[author_id].state == State.MESSAGE_IDENTIFIED:
             # Store the reported message
             self.report_data[author_id]["reported_message"] = self.reports[author_id].message
             
@@ -157,7 +157,7 @@ class ModBot(discord.Client):
             reply = "Please indicate why you are reporting this message:"
             for i, category in enumerate(self.categories):
                 reply += f"\n{i+1}. {category}"
-            responses = [reply]
+            responses.append(reply)
             
             # Update state
             self.reports[author_id].state = State.AWAITING_CATEGORY
