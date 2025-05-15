@@ -8,6 +8,7 @@ import re
 import requests
 from report import Report, State
 import pdb
+from moderator import ModeratorHandler
 
 # Set up logging to the console
 logger = logging.getLogger('discord')
@@ -36,6 +37,8 @@ class ModBot(discord.Client):
         self.reports = {} # Map from user IDs to the state of their report
         self.report_data = {} # Map from user IDs to their report data
         self.pending_mod_reviews = {} 
+        self.moderator_handler = ModeratorHandler(self)
+
         self.categories = [
             "I just don't like it",
             "Promoting or selling illegal items",
@@ -108,7 +111,7 @@ class ModBot(discord.Client):
 
         # Check if this message was sent in a server ("guild") or if it's a DM
         if message.guild and message.channel.name == f'group-{self.group_num}-mod':
-            await self.handle_moderator_command(message)
+            await self.moderator_handler.handle_moderator_command(message)
         if message.guild:
             await self.handle_channel_message(message)
         else:
@@ -509,41 +512,6 @@ class ModBot(discord.Client):
         shown in the mod channel. 
         '''
         return "Evaluated: '" + text+ "'"
-    
-    async def handle_moderator_command(self, message):
-        guild_id = message.guild.id
-
-        # No active mod review for this guild
-        if guild_id not in self.pending_mod_reviews:
-            return
-
-        pending = self.pending_mod_reviews[guild_id]
-        report_id = pending["report_id"]
-        step = pending["step"]
-        mod_data = pending["data"]
-
-        if step == "awaiting_severity":
-            try:
-                severity = int(message.content.strip())
-                if severity not in [1, 2, 3]:
-                    raise ValueError
-            except ValueError:
-                await message.channel.send("❗ Please enter a number from 1 to 3 for severity.")
-                return
-
-            mod_data["severity"] = severity
-            pending["step"] = "awaiting_observations"
-            await message.channel.send("📝 Please enter any moderator observations (or say `none`).")
-
-        elif step == "awaiting_observations":
-            mod_data["observations"] = message.content.strip()
-            await self.finalize_moderation_decision(
-                report_data=mod_data["report_data"],
-                severity=mod_data["severity"],
-                observations=mod_data["observations"],
-                channel=message.channel
-            )
-            del self.pending_mod_reviews[guild_id]
 
     async def finalize_moderation_decision(self, report_data, severity, observations, channel):
         category = report_data.get("category", "")

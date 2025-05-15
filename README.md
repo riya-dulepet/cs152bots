@@ -1,6 +1,6 @@
 # CS 152 - Trust and Safety Engineering
 
-Our Discord bot helps streamline the reporting flow that a user would have on Discord's platform.
+Our Discord bot helps streamline the reporting flow that a user would have on Discord's platform. Our moderator focuses on hate speech on a streaming platform.
 
 ## User Flow Diagram
 
