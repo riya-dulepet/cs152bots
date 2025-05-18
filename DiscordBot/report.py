@@ -1,6 +1,6 @@
 from enum import Enum, auto
 import uuid
-import discord
+import discord # type: ignore
 import re
 
 class State(Enum):

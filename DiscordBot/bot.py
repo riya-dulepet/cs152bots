@@ -1,6 +1,5 @@
-# bot.py
-import discord
-from discord.ext import commands
+import discord # type: ignore
+from discord.ext import commands # type: ignore
 import os
 import json
 import logging
@@ -9,6 +8,7 @@ import requests
 from report import Report, State
 import pdb
 from moderator import ModeratorHandler
+from report_submission import submit_report
 
 # Set up logging to the console
 logger = logging.getLogger('discord')
@@ -17,15 +17,12 @@ handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w'
 handler.setFormatter(logging.Formatter('%(asctime)s:%(levelname)s:%(name)s: %(message)s'))
 logger.addHandler(handler)
 
-# There should be a file called 'tokens.json' inside the same folder as this file
 token_path = 'tokens.json'
 if not os.path.isfile(token_path):
     raise Exception(f"{token_path} not found!")
 with open(token_path) as f:
-    # If you get an error here, it means your token is formatted incorrectly. Did you put it in quotes?
     tokens = json.load(f)
     discord_token = tokens['discord']
-
 
 class ModBot(discord.Client):
     def __init__(self): 
@@ -329,16 +326,15 @@ class ModBot(discord.Client):
                 responses = ["Please enter a number to select a category."]
                 
         elif self.reports[author_id].state == State.AWAITING_MINOR_CONFIRMATION:
-            if message.content.strip() == "1" or message.content.lower() == "yes":
+            content = message.content.strip().lower()
+            if content in ["1", "yes", "y"]:
                 self.report_data[author_id]["age_under_18"] = True
-            elif message.content.strip() == "2" or message.content.lower() == "no":
+            elif content in ["2", "no", "n"]:
                 self.report_data[author_id]["age_under_18"] = False
             else:
-                responses = ["Please select 1 for Yes or 2 for No."]
-                for r in responses:
-                    await message.channel.send(r)
+                await message.channel.send(f"Please select a valid option between 1 and {len(self.violence_categories)}")
                 return
-                
+               
             # Move to additional details
             responses = ["Please include any additional details to DM to the bot"]
             self.reports[author_id].state = State.AWAITING_DETAILS
@@ -411,81 +407,9 @@ class ModBot(discord.Client):
         for r in responses:
             await message.channel.send(r)
 
-
     async def submit_report(self, author_id):
-        """Submit a completed report to the moderators"""
-        # Get report data
-        report_data = self.report_data[author_id]
-        reported_message = report_data["reported_message"]
-        
-        mod_channel = self.mod_channels[reported_message.guild.id]
-        report_id = self.reports[author_id].report_id
-        
-        # Create an embed for the report
-        embed = discord.Embed(title="Message Reported", color=discord.Color.red())
-        embed.add_field(name="Content", value=reported_message.content, inline=False)
-        embed.add_field(name="Author", value=reported_message.author.mention, inline=True)
-        embed.add_field(name="Channel", value=reported_message.channel.mention, inline=True)
-        embed.add_field(name="Reported by", value=f"<@{author_id}>", inline=True)
-        
-        # Add report categories
-        embed.add_field(name="Category", value=report_data["category"], inline=True)
-        
-        if "subcategory" in report_data and report_data["subcategory"]:
-            embed.add_field(name="Subcategory", value=report_data["subcategory"], inline=True)
+        await submit_report(self, author_id)
             
-        if "violence_type" in report_data and report_data["violence_type"]:
-            embed.add_field(name="Violence Type", value=report_data["violence_type"], inline=True)
-            
-        if "hateful_type" in report_data and report_data["hateful_type"]:
-            embed.add_field(name="Hateful Conduct Type", value=report_data["hateful_type"], inline=True)
-            
-        if "illegal_type" in report_data and report_data["illegal_type"]:
-            embed.add_field(name="Illegal Item Type", value=report_data["illegal_type"], inline=True)
-            
-        if "fraud_type" in report_data and report_data["fraud_type"]:
-            embed.add_field(name="Fraud/Spam Type", value=report_data["fraud_type"], inline=True)
-            
-        if "self_harm_type" in report_data and report_data["self_harm_type"]:
-            embed.add_field(name="Self-Harm Type", value=report_data["self_harm_type"], inline=True)
-            
-        if "age_under_18" in report_data and report_data["age_under_18"] is not None:
-            embed.add_field(name="Involves minor under 18", value="Yes" if report_data["age_under_18"] else "No", inline=True)
-            
-        # Add additional details
-        if "additional_details" in report_data and report_data["additional_details"]:
-            embed.add_field(name="Additional Details", value=report_data["additional_details"], inline=False)
-            
-        # Add user actions
-        if "actions" in report_data and report_data["actions"]:
-            embed.add_field(name="User Actions", value=", ".join(report_data["actions"]), inline=False)
-        
-        embed.add_field(name="Report ID", value=report_id, inline=False)
-
-            
-        # Add message link
-        message_link = f"https://discord.com/channels/{reported_message.guild.id}/{reported_message.channel.id}/{reported_message.id}"
-        embed.add_field(name="Message Link", value=f"[Click to view]({message_link})", inline=False)
-        
-        # Send the report to moderators
-        await mod_channel.send(embed=embed)
-
-
-        self.pending_mod_reviews[mod_channel.guild.id] = {
-        "report_id": report_id,
-        "step": "awaiting_severity",
-        "data": {
-            "report_data": report_data,
-            "severity": None,
-            "observations": ""
-            }
-        }
-
-        await mod_channel.send(
-            f"🛡️ Moderators: Please assess **severity (1 = low, 2 = medium, 3 = high)** for report `{report_id}`."
-        )
-            
-
     async def handle_channel_message(self, message):
         # Only handle messages sent in the "group-#" channel
         if not message.channel.name == f'group-{self.group_num}':
@@ -504,7 +428,6 @@ class ModBot(discord.Client):
         '''
         return message
 
-    
     def code_format(self, text):
         ''''
         TODO: Once you know how you want to show that a message has been 
@@ -542,7 +465,7 @@ class ModBot(discord.Client):
             if severity == 3 and illegal_type in ["weapons", "drugs"]:
                 action = "High-severity illegal content detected. Case escalated to law enforcement specialists."
             else:
-                action = "Cntent removed. No further action taken at this time."
+                action = "Content removed. No further action taken at this time."
 
         elif category == "I just don't like it":
             action = "ℹReport dismissed. No action taken."
@@ -551,11 +474,11 @@ class ModBot(discord.Client):
 
         # Compose summary
         summary = f"""**Moderator Decision Summary**
-    - **Category:** {category}
-    - **Severity:** {severity}
-    - **Moderator Notes:** {observations}
-    - **Action Taken:** {action}
-    """
+        - **Category:** {category}
+        - **Severity:** {severity}
+        - **Moderator Notes:** {observations}
+        - **Action Taken:** {action}
+        """
 
         await channel.send(summary)
 
@@ -564,8 +487,6 @@ class ModBot(discord.Client):
             user = await self.fetch_user(author_id)
             await user.send("✅ Your report has been reviewed. Here is the outcome:")
             await user.send(summary)
-
-
 
 client = ModBot()
 client.run(discord_token)
