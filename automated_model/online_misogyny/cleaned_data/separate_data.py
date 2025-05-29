@@ -1,31 +1,23 @@
+# Static script (needs to only be run one) that splits data into misogynistic data vs nonmisogynistic data
+
 import pandas as pd
 import os
 
-# Define paths
-input_path = 'automated_model/online_misogyny/original_data/final_labels.csv'
-output_dir = 'automated_model/online_misogyny/cleaned_data/'
+final_labels_path = 'automated_model/online_misogyny/original_data/final_labels.csv'
+clean_data_path = 'automated_model/online_misogyny/cleaned_data/'
 
-# Load the data
-df = pd.read_csv(input_path)
-
-# Clean whitespace and fix casing (if needed)
+df = pd.read_csv(final_labels_path)
 df['level_1'] = df['level_1'].astype(str).str.strip()
-
-# Replace newlines/tabs in body with a space, strip surrounding whitespace
 df['body'] = df['body'].astype(str).str.replace(r'\s+', ' ', regex=True).str.strip()
 
-# Filter based on exact equality
 misogynistic_df = df[df['level_1'] == 'Misogynistic'][['body']]
-non_misogynistic_df = df[df['level_1'] == 'Nonmisogynistic'][['body']]
-
-# Output file paths
-misogynistic_file = os.path.join(output_dir, 'misogynistic_text.csv')
-non_misogynistic_file = os.path.join(output_dir, 'non_misogynistic_text.csv')
-
-# Save to CSV
+misogynistic_file = os.path.join(clean_data_path, 'misogynistic_text.csv')
 misogynistic_df.to_csv(misogynistic_file, index=False)
+
+non_misogynistic_df = df[df['level_1'] == 'Nonmisogynistic'][['body']]
+non_misogynistic_file = os.path.join(clean_data_path, 'non_misogynistic_text.csv')
 non_misogynistic_df.to_csv(non_misogynistic_file, index=False)
 
 print("✅ Files created with exact label matching and cleaned body:")
-print(f"   Misogynistic -> {misogynistic_file}")
-print(f"   Non-misogynistic -> {non_misogynistic_file}")
+print(f"   Misogynistic -> {misogynistic_file} ({misogynistic_df.shape[0]} rows)")
+print(f"   Non-misogynistic -> {non_misogynistic_file} ({non_misogynistic_df.shape[0]} rows)")
