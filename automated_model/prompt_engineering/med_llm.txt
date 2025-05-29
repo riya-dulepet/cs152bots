@@ -1,0 +1,3 @@
+Medium policy description -- didn't plan on this before, but maybe we can think about it. temporary file right now.
+
+Ask it to provide confidence score
