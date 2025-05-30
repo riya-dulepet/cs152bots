@@ -1,3 +1,4 @@
 *.log
 DiscordBot/tokens.json
 automated_model/online_misogyny/original_data/dataset_post_images/
+__pycache__/
