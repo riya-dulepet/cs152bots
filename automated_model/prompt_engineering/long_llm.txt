@@ -22,6 +22,12 @@ Return ONLY the JSON object – no prose, markdown, or code fences.
 • 0.70–0.89 -> fairly certain  
 • 0.50–0.69 -> borderline / unsure  
 
+*Typical mapping*  
+• 0.90 – 0.98  → obvious violations (violent threats, clear slurs)  
+• 0.70 – 0.89  → unambiguous but less intense cases (stereotypes, objectification)  
+• 0.50 – 0.69  → borderline or sarcastic wording where context is unclear  
+(These ranges are guidelines; use your best probability estimate.)
+
 **Severity scale (0–4)**  
 0  Non‑misogynistic / allowed content  
 1  Mild sexist trope, joke, or condescension (“go make me a sandwich”)  
