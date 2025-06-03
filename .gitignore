@@ -5,3 +5,4 @@ __pycache__/
 google-cloud-sdk-453.0.0-darwin-arm.tar.gz
 google-cloud-sdk/
 google-cloud-sdk.staging/
+.env

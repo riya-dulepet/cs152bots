@@ -5,12 +5,11 @@ import pathlib
 from typing import List
 
 from dotenv import load_dotenv
-from openai import OpenAI, OpenAIError
+from openai import OpenAI, OpenAIError # type: ignore
 
 DEFAULT_MODEL = "gpt-4o-mini"
 
 BANNER = "-----" 
-
 
 def read_messages(path: pathlib.Path) -> List[str]:
     """Return non‑empty, stripped lines from *path*."""
