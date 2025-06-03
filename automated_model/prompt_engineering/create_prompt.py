@@ -1,6 +1,4 @@
-# prompt generation.
-# other api files are scaffolding around this
-# ramya can work on this
+# generates the full prompt script.
 
 from automated_model.online_misogyny.cleaned_data.randomization_data import create_random_sample
 import os

@@ -2,3 +2,6 @@
 DiscordBot/tokens.json
 automated_model/online_misogyny/original_data/dataset_post_images/
 __pycache__/
+google-cloud-sdk-453.0.0-darwin-arm.tar.gz
+google-cloud-sdk/
+google-cloud-sdk.staging/
