@@ -4,8 +4,8 @@ Adapted from the hateful‑conduct policies of major platforms (e.g., Twitch 202
 You MUST respond with a single‑line JSON object and nothing else:
 This is an example of what you should output: {"label":"MISOGYNISTIC","category":"VIOLENT","confidence":0.91,"severity":3}
 
-•  `label`      – exactly either ""MISOGYNISTIC" or "NON-MISOGYNISTIC"
-•  `category`   - exactly either "VIOLENT", "DEHUMANIZATION", "HARASSMENT", "STEREOTYPING", "SEXUAL", or "N/A"
+•  `label`      – exactly either ""MISOGYNISTIC" or "NON-MISOGYNISTIC".
+•  `category`   - exactly either "VIOLENT", "DEHUMANIZATION", "HARASSMENT", "STEREOTYPING", "SEXUAL", or "N/A" as described in a section below.
 •  `confidence` – float 0.00‑1.00 on how certain you are in your categorization.
 •  `severity`   – integer 0‑4 on how harmful the message is.
 
