@@ -10,6 +10,14 @@ import pdb
 from moderator import ModeratorHandler
 from report_submission import submit_report
 
+
+from openai import OpenAI, OpenAIError
+from dotenv import load_dotenv
+load_dotenv()
+
+
+
+
 # Set up logging to the console
 logger = logging.getLogger('discord')
 logger.setLevel(logging.DEBUG)
@@ -35,6 +43,12 @@ class ModBot(discord.Client):
         self.report_data = {} # Map from user IDs to their report data
         self.pending_mod_reviews = {} 
         self.moderator_handler = ModeratorHandler(self)
+
+        with open("../automated_model/model_apis/prompts_created/both/prompt_long_1.txt", "r") as f:
+            self.llm_prompt_template = f.read()
+        
+
+        self.openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
         self.categories = [
             "I just don't like it",
@@ -64,9 +78,7 @@ class ModBot(discord.Client):
             "Slurs/Offensive Symbols",
             "Exploitation",
             "Racist or xenophobic content",
-            "Religious hate or bigotry",
-            "Other"
-        ]
+            "Religious hate or bigotry",        ]
 
         self.violence_categories = [
             "Showing violence, death, severe injury",
@@ -76,6 +88,9 @@ class ModBot(discord.Client):
             "Animal Abuse",
             "Other"
         ]
+
+        self.flagged_messages = set()         
+
 
     async def on_ready(self):
         print(f'{self.user.name} has connected to Discord! It is these guilds:')
@@ -148,6 +163,12 @@ class ModBot(discord.Client):
             
         elif self.reports[author_id].state == State.AWAITING_MESSAGE:
             responses = await self.reports[author_id].handle_message(message)
+            reported_msg = self.reports[author_id].message
+            if reported_msg.id in self.flagged_messages:
+                await message.channel.send("⚠️ This message has already been reported and is under review.")
+                self.reports[author_id].state = State.REPORT_COMPLETE
+                return
+
             
         if self.reports[author_id].state == State.MESSAGE_IDENTIFIED:
             # Store the reported message
@@ -409,24 +430,80 @@ class ModBot(discord.Client):
 
     async def submit_report(self, author_id):
         await submit_report(self, author_id)
-            
+    
+
+
+    def map_llm(self, result):
+        llm_map = {
+        "MISOGYNISTIC": ("Violence or Hateful Conduct", "Hateful Conduct"),
+        "NON-MISOGYNISTIC": ("I just don't like it", "Other"),
+        }
+
+        cat, sub = llm_map.get(
+            result.get("label", "NON-MISOGYNISTIC"), ("Other", "Other")
+        )
+        return {
+            "category": cat,
+            "subcategory": sub,
+            "severity": int(result.get("severity", 2)),
+            "hateful_type": result.get("category"),
+            "confidence": result.get("confidence"),
+        }
+                
+
     async def handle_channel_message(self, message):
-        # Only handle messages sent in the "group-#" channel
-        if not message.channel.name == f'group-{self.group_num}':
+        if message.channel.name != f'group-{self.group_num}':
             return
 
-        # Forward the message to the mod channel
         mod_channel = self.mod_channels[message.guild.id]
-        await mod_channel.send(f'Forwarded message:\n{message.author.name}: "{message.content}"')
-        scores = self.eval_text(message.content)
-        await mod_channel.send(self.code_format(scores))
+        await mod_channel.send(f'Forwarded:\n{message.author}: “{message.content}”')
+
+        result = self.eval_text(message.content)
+
+        await mod_channel.send(
+            f"🚨 **LLM flagged** – {result}"
+        )
+        if result.get("label") == "MISOGYNISTIC":
+            mapped = self.map_llm(result)
+
+            author_id = message.author.id
+            self.report_data[author_id] = {
+                "reported_message": message,
+                **mapped,
+                "details": f"Auto‑flagged (conf {mapped['confidence']:.2})",
+                "actions": ["Auto‑flagged by LLM"],
+                "author_id": author_id,
+            }
+
+            self.flagged_messages.add(message.id)
+            await self.finalize_moderation_decision(
+                report_data=self.report_data[author_id],
+                severity=mapped["severity"],
+                observations="Automated LLM decision",
+                channel=mod_channel,
+            )
     
-    def eval_text(self, message):
-        ''''
-        TODO: Once you know how you want to evaluate messages in your channel, 
-        insert your code here! This will primarily be used in Milestone 3. 
-        '''
-        return message
+    def eval_text(self, message_text: str):
+        prompt = f"{self.llm_prompt_template}\n\n-----\nMessage:\n{message_text}\n-----"
+
+        try:
+            response = self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            content = response.choices[0].message.content.strip()
+
+            try:
+                parsed = json.loads(content)
+            except json.JSONDecodeError:
+                print("[LLM Parse Error] Response:", content)
+                return {"flagged": False}
+
+            return parsed  # Contains label, category, confidence, severity
+
+        except OpenAIError as e:
+            print("[LLM API Error]", e)
+            return {"flagged": False}
 
     def code_format(self, text):
         ''''
@@ -442,35 +519,42 @@ class ModBot(discord.Client):
         violence = report_data.get("violence_type", "")
         involves_minor = report_data.get("age_under_18", False)
 
-        if category == "Violence or Hateful Conduct" and sub == "Violence":
-            if severity == 3 or violence == "Credible threat to safety":
-                action = "Escalated to legal team and safety specialists."
-            elif violence == "Exploitation" and involves_minor:
-                action = "Child exploitation — reported to child safety unit."
-            else:
-                action = "Warning issued. Message removed."
-
-        elif category == "Hateful Conduct":
-            action = "Hateful conduct confirmed. User suspended."
-
-        elif category == "Suicide, self-injury, or eating disorders":
-            action = "Referred to mental health support."
-
-        elif category == "Fraud, Scam, or Spam":
-            action = "Scam detected. User shadowbanned."
-        
-        elif category == "Promoting or selling illegal items":
-            illegal_type = report_data.get("illegal_type", "").lower()
-
-            if severity == 3 and illegal_type in ["weapons", "drugs"]:
-                action = "High-severity illegal content detected. Case escalated to law enforcement specialists."
-            else:
-                action = "Content removed. No further action taken at this time."
-
-        elif category == "I just don't like it":
-            action = "ℹReport dismissed. No action taken."
-        else: 
+        if severity == 1: 
             action = "Content reviewed. No further action required."
+        
+        elif severity == 2: 
+            action = "Warning issued. Message removed."
+
+        else: 
+            if category == "Violence or Hateful Conduct" and sub == "Violence":
+                if severity == 3 or violence == "Credible threat to safety":
+                    action = "Escalated to legal team and safety specialists."
+                elif violence == "Exploitation" and involves_minor:
+                    action = "Child exploitation — reported to child safety unit."
+                else:
+                    action = "Warning issued. Message removed."
+
+            elif category == "Violence or Hateful Conduct" and sub == "Hateful Conduct":
+                action = "Hateful conduct confirmed. User suspended."
+
+            elif category == "Suicide, self-injury, or eating disorders":
+                action = "Referred to mental health support."
+
+            elif category == "Fraud, Scam, or Spam":
+                action = "Scam detected. User shadowbanned."
+            
+            elif category == "Promoting or selling illegal items":
+                illegal_type = report_data.get("illegal_type", "").lower()
+
+                if severity == 3 and illegal_type in ["weapons", "drugs"]:
+                    action = "High-severity illegal content detected. Case escalated to law enforcement specialists."
+                else:
+                    action = "Content removed. No further action taken at this time."
+
+            elif category == "I just don't like it":
+                action = "ℹReport dismissed. No action taken."
+            else: 
+                action = "Content reviewed. No further action required."
 
         # Compose summary
         summary = f"""**Moderator Decision Summary**
@@ -487,6 +571,7 @@ class ModBot(discord.Client):
             user = await self.fetch_user(author_id)
             await user.send("✅ Your report has been reviewed. Here is the outcome:")
             await user.send(summary)
+
 
 client = ModBot()
 client.run(discord_token)
