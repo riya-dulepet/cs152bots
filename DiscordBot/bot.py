@@ -527,7 +527,7 @@ class ModBot(discord.Client):
 
         else: 
             if category == "Violence or Hateful Conduct" and sub == "Violence":
-                if severity == 3 or violence == "Credible threat to safety":
+                if violence == "Credible threat to safety":
                     action = "Escalated to legal team and safety specialists."
                 elif violence == "Exploitation" and involves_minor:
                     action = "Child exploitation — reported to child safety unit."
@@ -546,7 +546,7 @@ class ModBot(discord.Client):
             elif category == "Promoting or selling illegal items":
                 illegal_type = report_data.get("illegal_type", "").lower()
 
-                if severity == 3 and illegal_type in ["weapons", "drugs"]:
+                if illegal_type in ["weapons", "drugs"]:
                     action = "High-severity illegal content detected. Case escalated to law enforcement specialists."
                 else:
                     action = "Content removed. No further action taken at this time."
