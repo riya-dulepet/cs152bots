@@ -16,6 +16,7 @@ PROMPT_NUM_SHORT = 'automated_model/prompt_engineering/prompt_metrics/prompt_sho
 PROMPT_NUM_LONG = 'automated_model/prompt_engineering/prompt_metrics/prompt_long_number.txt'
 PROMPT_NUM_BOTH = 'automated_model/prompt_engineering/prompt_metrics/prompt_both_number.txt'
 
+# generating prompt with a specific size
 def prompt_generation(size):
     if size not in ("short", "long"):
         raise ValueError("Size must be 'short' or 'long'")
@@ -70,6 +71,7 @@ def prompt_generation(size):
 
     print(f"✅ {size.capitalize()} prompt saved to: {new_prompt_path}")
 
+# generating prompt for both sizes
 def prompt_generation_both():
     output_subdir = os.path.join(PROMPT_DIR, "both")
     os.makedirs(output_subdir, exist_ok=True)

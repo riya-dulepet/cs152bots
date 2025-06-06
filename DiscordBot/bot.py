@@ -10,13 +10,9 @@ import pdb
 from moderator import ModeratorHandler
 from report_submission import submit_report
 
-
-from openai import OpenAI, OpenAIError
+from openai import OpenAI, OpenAIError # type: ignore
 from dotenv import load_dotenv
 load_dotenv()
-
-
-
 
 # Set up logging to the console
 logger = logging.getLogger('discord')
