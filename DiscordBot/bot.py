@@ -9,8 +9,10 @@ from report import Report, State
 import pdb
 from moderator import ModeratorHandler
 from report_submission import submit_report
+import asyncio
 
 from openai import OpenAI, OpenAIError # type: ignore
+import google.generativeai as genai # type: ignore
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -40,11 +42,19 @@ class ModBot(discord.Client):
         self.pending_mod_reviews = {} 
         self.moderator_handler = ModeratorHandler(self)
 
-        with open("../automated_model/model_apis/prompts_created/both/prompt_long_1.txt", "r") as f:
+        with open("../automated_model/model_apis/prompts_created/both/prompt_long_1.txt", "r", encoding="utf-8") as f:
             self.llm_prompt_template = f.read()
         
+        # gpt-4o mini configuration
+        # self.openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-        self.openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        # gemini 1.5 flash
+        self.google_api_key = os.getenv("GOOGLE_API_KEY")
+        if not self.google_api_key:
+            raise RuntimeError("GOOGLE_API_KEY not found (check your .env file).")
+
+        genai.configure(api_key=self.google_api_key)
+        self.gemini_client = genai.GenerativeModel(model_name="models/gemini-1.5-flash")
 
         self.categories = [
             "I just don't like it",
@@ -54,27 +64,36 @@ class ModBot(discord.Client):
             "Suicide, self-injury, or eating disorders",
             "Violence or Hateful Conduct",
         ]
+
         self.illegal_categories = [
             "Weapons",
             "Drugs",
             "Other"
         ]
+
         self.fraud_categories = [
             "Spam",
             "Fraud/Scam",
         ]
+
         self.suicide_categories = [
             "Expressing suicidal thoughts",
             "Promoting self-harm",
             "Promoting or glorifying eating disorders"
         ]
-        self.violence_or_hate = ["Violence", "Hateful Conduct"]
+
+        self.violence_or_hate = [
+            "Violence", 
+            "Hateful Conduct"
+        ]
+
         self.hateful_conduct_categories = [
             "Other",
             "Slurs/Offensive Symbols",
             "Exploitation",
             "Racist or xenophobic content",
-            "Religious hate or bigotry",        ]
+            "Religious hate or bigotry"
+        ]
 
         self.violence_categories = [
             "Showing violence, death, severe injury",
@@ -86,7 +105,6 @@ class ModBot(discord.Client):
         ]
 
         self.flagged_messages = set()         
-
 
     async def on_ready(self):
         print(f'{self.user.name} has connected to Discord! It is these guilds:')
@@ -107,7 +125,6 @@ class ModBot(discord.Client):
                 if channel.name == f'group-{self.group_num}-mod':
                     self.mod_channels[guild.id] = channel
         
-
     async def on_message(self, message):
         '''
         This function is called whenever a message is sent in a channel that the bot can see (including DMs). 
@@ -427,8 +444,6 @@ class ModBot(discord.Client):
     async def submit_report(self, author_id):
         await submit_report(self, author_id)
     
-
-
     def map_llm(self, result):
         llm_map = {
         "MISOGYNISTIC": ("Violence or Hateful Conduct", "Hateful Conduct"),
@@ -446,7 +461,6 @@ class ModBot(discord.Client):
             "confidence": result.get("confidence"),
         }
                 
-
     async def handle_channel_message(self, message):
         if message.channel.name != f'group-{self.group_num}':
             return
@@ -478,7 +492,9 @@ class ModBot(discord.Client):
                 observations="Automated LLM decision",
                 channel=mod_channel,
             )
-    
+
+    # open ai integration
+    '''
     def eval_text(self, message_text: str):
         prompt = f"{self.llm_prompt_template}\n\n-----\nMessage:\n{message_text}\n-----"
 
@@ -500,20 +516,37 @@ class ModBot(discord.Client):
         except OpenAIError as e:
             print("[LLM API Error]", e)
             return {"flagged": False}
+    '''
+    
+    # gemini integration
+    def eval_text(self, message_text: str):
+        prompt = f"{self.llm_prompt_template}\n\n-----\nMessage:\n{message_text}\n-----"
+
+        try:
+            response = self.gemini_client.generate_content(prompt)
+            content = response.text.strip()
+
+            try:
+                parsed = json.loads(content)
+            except json.JSONDecodeError:
+                print("[LLM Parse Error] Response:", content)
+                return {"flagged": False}
+
+            return parsed
+
+        except Exception as e:
+            print("[Gemini API Error]", e)
+            return {"flagged": False}
 
     def code_format(self, text):
-        ''''
-        TODO: Once you know how you want to show that a message has been 
-        evaluated, insert your code here for formatting the string to be 
-        shown in the mod channel. 
-        '''
-        return "Evaluated: '" + text+ "'"
+        return f"🔍 Moderation Evaluation:\n```{text}```"
 
     async def finalize_moderation_decision(self, report_data, severity, observations, channel):
         category = report_data.get("category", "")
         sub = report_data.get("subcategory", "")
         violence = report_data.get("violence_type", "")
         involves_minor = report_data.get("age_under_18", False)
+        author_id = report_data.get("author_id", "")
 
         if severity == 1: 
             action = "Content reviewed. No further action required."
@@ -552,6 +585,40 @@ class ModBot(discord.Client):
             else: 
                 action = "Content reviewed. No further action required."
 
+        # deleting message with severity >= 2
+        if severity >= 2:
+            reported_message = report_data.get("reported_message")
+            if reported_message:
+                try:
+                    await reported_message.delete()
+                    print(f"[Info] Deleted reported message (ID: {reported_message.id}) due to severity {severity}.")
+                except Exception as e:
+                    print(f"[Error] Failed to delete reported message: {e}")
+
+        # temporarily restrict user with severity >= 3
+        if severity >= 3 and isinstance(channel, discord.TextChannel):
+            try:
+                guild = channel.guild
+                user = await self.fetch_user(author_id)
+                member = guild.get_member(author_id)
+
+                if member:
+                    overwrite = channel.overwrites_for(member)
+                    overwrite.send_messages = False
+                    overwrite.view_channel = False
+
+                    await channel.set_permissions(member, overwrite=overwrite)
+                    print(f"[Info] User {member} temporarily banned from channel '{channel.name}'")
+
+                    async def restore_permissions():
+                        await asyncio.sleep(120)  # wait 2 minutes
+                        await channel.set_permissions(member, overwrite=None)
+                        print(f"[Info] User {member} unbanned from channel '{channel.name}'")
+
+                    asyncio.create_task(restore_permissions())
+            except Exception as e:
+                print(f"[Error] Failed to temporarily ban user from channel: {e}")
+
         # Compose summary
         summary = f"""**Moderator Decision Summary**
         - **Category:** {category}
@@ -567,7 +634,6 @@ class ModBot(discord.Client):
             user = await self.fetch_user(author_id)
             await user.send("✅ Your report has been reviewed. Here is the outcome:")
             await user.send(summary)
-
 
 client = ModBot()
 client.run(discord_token)
