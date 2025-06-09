@@ -99,5 +99,5 @@ We use the dataset **“An expert annotated dataset for the detection of online 
 
 Our demo video walks through the functionality of our misogynistic hate speech detection pipeline and showcases the LLM evaluation setup.
 
-[Click below to watch our demo video] (https://drive.google.com/file/d/1pipn2UOSM6vWb23GUn3rBcUKH0DxYFOw/view?usp=sharing)
+[Click the link to watch our demo video!] (https://drive.google.com/file/d/1pipn2UOSM6vWb23GUn3rBcUKH0DxYFOw/view?usp=sharing)
 
