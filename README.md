@@ -3,6 +3,12 @@
 **Group 19: Ramya Iyer, Riya Dulepet, Haley Lepe, Nubia Correa**  
 **Department of Engineering**
 
+## Final Demo Video
+
+Our demo video walks through the functionality of our misogynistic hate speech detection pipeline and showcases the LLM evaluation setup.
+
+[Click the link to watch our demo video!] (https://drive.google.com/file/d/1pipn2UOSM6vWb23GUn3rBcUKH0DxYFOw/view?usp=sharing)
+
 ## Overview
 
 We implement an automated system to detect misogynistic hate speech in online platforms using LLMs. It aims to balance **user safety**, **freedom of expression**, and **global compliance** by accurately identifying hateful messages targeted at women.
@@ -11,9 +17,9 @@ We implement an automated system to detect misogynistic hate speech in online pl
 
 Online misogynistic hate speech is pervasive and harmful:
 
-- **66%** of respondents report encountering hate speech frequently online.
-- **73%** of Gen Z social media users have witnessed misogynistic content.
-- **50%** encounter misogynistic content weekly.
+- **66%** of respondents report encountering hate speech frequently online. [1]
+- **73%** of Gen Z social media users have witnessed misogynistic content. [2]
+- **50%** encounter misogynistic content weekly. [2]
 
 The core challenge is to detect such content automatically and act promptly **without excessive censorship**.
 
@@ -92,12 +98,3 @@ We use the dataset **“An expert annotated dataset for the detection of online 
 ## CS 152 Final Poster
 
 ![CS 152 Final Poster](assets/CS%20152%20Final%20Poster.png)
-
-
-
-## Final Demo Video
-
-Our demo video walks through the functionality of our misogynistic hate speech detection pipeline and showcases the LLM evaluation setup.
-
-[Click the link to watch our demo video!] (https://drive.google.com/file/d/1pipn2UOSM6vWb23GUn3rBcUKH0DxYFOw/view?usp=sharing)
-

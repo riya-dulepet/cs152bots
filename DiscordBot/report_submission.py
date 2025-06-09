@@ -9,14 +9,13 @@ async def submit_report(self, author_id):
     mod_channel = self.mod_channels[reported_message.guild.id]
     report_id = self.reports[author_id].report_id
     
-    # Create an embed for the report
     embed = discord.Embed(title="Message Reported", color=discord.Color.red())
     embed.add_field(name="Content", value=reported_message.content, inline=False)
     embed.add_field(name="Author", value=reported_message.author.mention, inline=True)
     embed.add_field(name="Channel", value=reported_message.channel.mention, inline=True)
     embed.add_field(name="Reported by", value=f"<@{author_id}>", inline=True)
     
-    # Add report categories
+    # reporting categories
     embed.add_field(name="Category", value=report_data["category"], inline=True)
     
     if "subcategory" in report_data and report_data["subcategory"]:
@@ -44,21 +43,21 @@ async def submit_report(self, author_id):
             inline=True
         )
         
-    # Add additional details
+    # open space to add additional details
     if "additional_details" in report_data and report_data["additional_details"]:
         embed.add_field(name="Additional Details", value=report_data["additional_details"], inline=False)
         
-    # Add user actions
+    # user action embeding
     if "actions" in report_data and report_data["actions"]:
         embed.add_field(name="User Actions", value=", ".join(report_data["actions"]), inline=False)
     
     embed.add_field(name="Report ID", value=report_id, inline=False)
 
-    # Add message link
+    # message link
     message_link = f"https://discord.com/channels/{reported_message.guild.id}/{reported_message.channel.id}/{reported_message.id}"
     embed.add_field(name="Message Link", value=f"[Click to view]({message_link})", inline=False)
     
-    # Send the report to moderators
+    # report to moderators
     await mod_channel.send(embed=embed)
 
     self.pending_mod_reviews[mod_channel.guild.id] = {

@@ -1,13 +1,12 @@
-# This handles the Moderator side of the flow
+# This handles the moderator side of the flow
 
 class ModeratorHandler:
     def __init__(self, bot):
-        self.bot = bot  # bot instance to access pending_mod_reviews and other data
+        self.bot = bot
 
     async def handle_moderator_command(self, message):
         guild_id = message.guild.id
 
-        # No active mod review for this guild
         if guild_id not in self.bot.pending_mod_reviews:
             return
 

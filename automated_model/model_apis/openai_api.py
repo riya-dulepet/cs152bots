@@ -8,22 +8,18 @@ from dotenv import load_dotenv
 from openai import OpenAI, OpenAIError # type: ignore
 
 DEFAULT_MODEL = "gpt-4o-mini"
-
 BANNER = "-----" 
 
 def read_messages(path: pathlib.Path) -> List[str]:
     """Return non‑empty, stripped lines from *path*."""
     return [ln.strip() for ln in path.read_text(encoding="utf-8").splitlines() if ln.strip()]
 
-
 def build_prompt(template: str, message: str) -> str:
     """Combine template and message into a single prompt string."""
     return f"{template}\n\n{BANNER}\nMessage:\n{message}\n{BANNER}"
 
-
 def write_json(path: pathlib.Path, obj: dict) -> None:
     path.write_text(json.dumps(obj, ensure_ascii=False, indent=2), encoding="utf-8")
-
 
 def main() -> None:
     p = argparse.ArgumentParser()
@@ -34,7 +30,7 @@ def main() -> None:
     p.add_argument("--overwrite", action="store_true", help="Overwrite existing JSON files.")
     args = p.parse_args()
 
-    # API key setup
+    # load api key - riya
     load_dotenv()
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:

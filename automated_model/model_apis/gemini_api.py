@@ -8,7 +8,6 @@ import google.generativeai as genai # type: ignore
 from dotenv import load_dotenv
 
 DEFAULT_MODEL = "models/gemini-1.5-flash"
-
 BANNER = "-----"
 
 def read_messages(path: pathlib.Path) -> List[str]:
@@ -29,14 +28,13 @@ def main() -> None:
     p.add_argument("--overwrite", action="store_true", help="Overwrite existing JSON files.")
     args = p.parse_args()
 
-    # Load API key
+    # load API key - ramya
     load_dotenv()
     api_key = os.getenv("GOOGLE_API_KEY")
     if not api_key:
         raise RuntimeError("GOOGLE_API_KEY not found (set env var or .env file).")
 
     genai.configure(api_key=api_key)
-
     model = genai.GenerativeModel(model_name=args.model)
 
     template_text = args.template_file.read_text(encoding="utf-8").rstrip()

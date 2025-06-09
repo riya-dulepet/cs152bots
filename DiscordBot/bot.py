@@ -42,7 +42,7 @@ class ModBot(discord.Client):
         self.pending_mod_reviews = {} 
         self.moderator_handler = ModeratorHandler(self)
 
-        with open("../automated_model/model_apis/prompts_created/both/prompt_long_1.txt", "r", encoding="utf-8") as f:
+        with open("automated_model/model_apis/prompts_created/both/prompt_long_1.txt", "r", encoding="utf-8") as f:
             self.llm_prompt_template = f.read()
         
         # gpt-4o mini configuration
@@ -540,100 +540,6 @@ class ModBot(discord.Client):
 
     def code_format(self, text):
         return f"🔍 Moderation Evaluation:\n```{text}```"
-
-    async def finalize_moderation_decision(self, report_data, severity, observations, channel):
-        category = report_data.get("category", "")
-        sub = report_data.get("subcategory", "")
-        violence = report_data.get("violence_type", "")
-        involves_minor = report_data.get("age_under_18", False)
-        author_id = report_data.get("author_id", "")
-
-        if severity == 1: 
-            action = "Content reviewed. No further action required."
-        
-        elif severity == 2: 
-            action = "Warning issued. Message removed."
-
-        else: 
-            if category == "Violence or Hateful Conduct" and sub == "Violence":
-                if violence == "Credible threat to safety":
-                    action = "Escalated to legal team and safety specialists."
-                elif violence == "Exploitation" and involves_minor:
-                    action = "Child exploitation — reported to child safety unit."
-                else:
-                    action = "Warning issued. Message removed."
-
-            elif category == "Violence or Hateful Conduct" and sub == "Hateful Conduct":
-                action = "Hateful conduct confirmed. User suspended."
-
-            elif category == "Suicide, self-injury, or eating disorders":
-                action = "Referred to mental health support."
-
-            elif category == "Fraud, Scam, or Spam":
-                action = "Scam detected. User shadowbanned."
-            
-            elif category == "Promoting or selling illegal items":
-                illegal_type = report_data.get("illegal_type", "").lower()
-
-                if illegal_type in ["weapons", "drugs"]:
-                    action = "High-severity illegal content detected. Case escalated to law enforcement specialists."
-                else:
-                    action = "Content removed. No further action taken at this time."
-
-            elif category == "I just don't like it":
-                action = "ℹReport dismissed. No action taken."
-            else: 
-                action = "Content reviewed. No further action required."
-
-        # deleting message with severity >= 2
-        if severity >= 2:
-            reported_message = report_data.get("reported_message")
-            if reported_message:
-                try:
-                    await reported_message.delete()
-                    print(f"[Info] Deleted reported message (ID: {reported_message.id}) due to severity {severity}.")
-                except Exception as e:
-                    print(f"[Error] Failed to delete reported message: {e}")
-
-        # temporarily restrict user with severity >= 3
-        if severity >= 3 and isinstance(channel, discord.TextChannel):
-            try:
-                guild = channel.guild
-                user = await self.fetch_user(author_id)
-                member = guild.get_member(author_id)
-
-                if member:
-                    overwrite = channel.overwrites_for(member)
-                    overwrite.send_messages = False
-                    overwrite.view_channel = False
-
-                    await channel.set_permissions(member, overwrite=overwrite)
-                    print(f"[Info] User {member} temporarily banned from channel '{channel.name}'")
-
-                    async def restore_permissions():
-                        await asyncio.sleep(120)  # wait 2 minutes
-                        await channel.set_permissions(member, overwrite=None)
-                        print(f"[Info] User {member} unbanned from channel '{channel.name}'")
-
-                    asyncio.create_task(restore_permissions())
-            except Exception as e:
-                print(f"[Error] Failed to temporarily ban user from channel: {e}")
-
-        # Compose summary
-        summary = f"""**Moderator Decision Summary**
-        - **Category:** {category}
-        - **Severity:** {severity}
-        - **Moderator Notes:** {observations}
-        - **Action Taken:** {action}
-        """
-
-        await channel.send(summary)
-
-        author_id = report_data.get("author_id")
-        if author_id:
-            user = await self.fetch_user(author_id)
-            await user.send("✅ Your report has been reviewed. Here is the outcome:")
-            await user.send(summary)
 
 client = ModBot()
 client.run(discord_token)

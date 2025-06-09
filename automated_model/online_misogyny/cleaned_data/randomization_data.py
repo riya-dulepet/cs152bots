@@ -2,11 +2,11 @@
 import pandas as pd
 import os
 
-# File paths
+# incoming misogynistic paths
 MIS_FILE = 'automated_model/online_misogyny/cleaned_data/misogynistic_text.csv'
 NONMIS_FILE = 'automated_model/online_misogyny/cleaned_data/non_misogynistic_text.csv'
 
-# Output paths
+# outputing paths
 OUTPUT_TRAIN_MIS_TXT = 'automated_model/prompt_engineering/randomized_data/train_misogynistic.txt'
 OUTPUT_TRAIN_NONMIS_TXT = 'automated_model/prompt_engineering/randomized_data/train_nonmisogynistic.txt'
 OUTPUT_VAL_MIS_TXT = 'automated_model/prompt_engineering/randomized_data/val_misogynistic.txt'
