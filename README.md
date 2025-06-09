@@ -92,3 +92,12 @@ We use the dataset **“An expert annotated dataset for the detection of online 
 ## CS 152 Final Poster
 
 ![CS 152 Final Poster](assets/CS%20152%20Final%20Poster.png)
+
+
+
+## Final Demo Video
+
+Our demo video walks through the functionality of our misogynistic hate speech detection pipeline and showcases the LLM evaluation setup.
+
+[Click here to watch our demo video] (https://drive.google.com/file/d/1pipn2UOSM6vWb23GUn3rBcUKH0DxYFOw/view?usp=sharing)
+
